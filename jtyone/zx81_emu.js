@@ -2802,7 +2802,11 @@ function ZX81(t, e, n, r) {
 function FileToLoad(t, e, n, r) {
     this.loadedLen = 0, this.fileName = t.replace("\\", "/");
     var i = new XMLHttpRequest;
-    i.open("GET", "/" + this.fileName, !0), i.responseType = "arraybuffer";
+
+    var baseLocation = window.location.href;
+    baseLocation = baseLocation.replace("jtyone/zx81.html","");
+
+    i.open("GET", baseLocation + this.fileName, !0), i.responseType = "arraybuffer";
     var o = this;
     i.onreadystatechange = function() {
         if (4 === this.readyState && 200 === this.status) {
@@ -3348,7 +3352,7 @@ var zx81opts = {
         chrgen: 0,
         enableqschrgen: !1,
         maxireg: 32,
-        rom: "./roms/zx81.rom"
+        rom: 'roms/zx81.rom'
     },
     ZX81_TO_ASCII = ' !!!!!!!!!!"£$:?()><=+-*/;,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ',
     tape = {
