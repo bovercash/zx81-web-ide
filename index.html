@@ -24,10 +24,10 @@
         .CodeMirror { flex: 1; height: 100%; font-size: 14px; font-family: 'Fira Code', 'Consolas', monospace; }
         
         #emulator-container { width: 780px; background: #000; display: flex; flex-direction: column; }
-        iframe { width: 100%; height: 550px; border: none; }
+        iframe { width: 100%; height: 530px; border: none; }
         
         /* Console Header & Layout */
-        #console-wrapper { height: 250px; background: #111; border-top: 1px solid #444; display: flex; flex-direction: column; }
+        #console-wrapper { height: 120px; background: #111; border-top: 1px solid #444; display: flex; flex-direction: column; }
         #console-header { background: #1a1a1a; padding: 4px 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
         #console { flex: 1; padding: 10px; font-family: monospace; overflow-y: auto; font-size: 12px; color: #0f0; }
         
@@ -294,6 +294,7 @@
             pasmo.callMain(['--bin', 'in.asm', 'out.p']);
             lastBinary = pasmo.FS.readFile('out.p');
             injectAndStart(lastBinary);
+            log("Press Enter and Follow Instructions");
         } catch (e) {
             log("Assembly Error.");
         }
