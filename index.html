@@ -44,6 +44,27 @@
         #filename-input:focus { outline: none; border-color: #007acc; }
 
         .hidden-input { display: none; }
+
+        .keyboard-sidebar {
+            position: fixed;
+            top: 60px; /* Adjust based on your header height */
+            left: -400px; /* Hidden by default */
+            width: 650px;
+            z-index: 1050; /* Sits above other elements but doesn't block the screen */
+            background: #212529;
+            transition: 0.3s ease-in-out;
+            border: 1px solid #444;
+            pointer-events: auto; /* Ensures you can click inside the panel */
+            }
+
+            .keyboard-sidebar.active {
+            left: 20px; /* Slide in from the left */
+            }
+
+            /* Optional: Make the image look retro */
+            .keyboard-sidebar img {
+            filter: grayscale(20%) contrast(110%);
+            }
     </style>
 </head>
 <body>
@@ -72,6 +93,9 @@
                     <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item" onclick="clearTapes()"><i data-feather="trash-2" class="me-2" style="width:14px"></i>Clear Tapes</a></li>
                 </ul>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="toggleKeyboard()">>Keyboard Map</a>
             </li>
         </ul>
         
@@ -108,6 +132,16 @@
             <div id="console"></div>
         </div>
     </div>
+</div>
+
+<div id="keyboardPanel" class="keyboard-sidebar shadow">
+  <div class="d-flex justify-content-between align-items-center p-2 border-bottom border-secondary bg-dark text-white">
+    <span class="small fw-bold">ZX81 Keyboard Map</span>
+    <button type="button" class="btn-close btn-close-white" onclick="toggleKeyboard()"></button>
+  </div>
+  <div class="p-2 bg-dark">
+    <img src="keyboard.png" class="img-fluid rounded" alt="ZX81 Keyboard">
+  </div>
 </div>
 
 <div class="modal fade" id="aboutModal" tabindex="-1" aria-hidden="true">
@@ -298,6 +332,11 @@
         } catch (e) {
             log("Assembly Error.");
         }
+    }
+
+    function toggleKeyboard() {
+        const panel = document.getElementById('keyboardPanel');
+        panel.classList.toggle('active');
     }
 
     function showAbout() {
