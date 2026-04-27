@@ -3348,7 +3348,7 @@ var zx81opts = {
         chrgen: 0,
         enableqschrgen: !1,
         maxireg: 32,
-        rom: "roms/zx81.rom"
+        rom: "./roms/zx81.rom"
     },
     ZX81_TO_ASCII = ' !!!!!!!!!!"£$:?()><=+-*/;,.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ',
     tape = {
