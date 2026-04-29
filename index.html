@@ -45,31 +45,34 @@
 
         .hidden-input { display: none; }
 
+        /* Floating Sidebar Styling */
         .keyboard-sidebar {
             position: fixed;
-            top: 60px; /* Adjust based on your header height */
-            left: -400px; /* Hidden by default */
-            width: 350px;
-            z-index: 1050; /* Sits above other elements but doesn't block the screen */
-            background: #212529;
+            top: 70px;
+            left: -620px; /* Hidden by default */
+            width: 600px;
+            z-index: 1050;
+            background: #1e1e1e;
             transition: 0.3s ease-in-out;
             border: 1px solid #444;
-            pointer-events: auto; /* Ensures you can click inside the panel */
-            }
+            border-radius: 0 8px 8px 0;
+        }
+        .keyboard-sidebar.active { left: 0; }
+        
+        /* Tab Styling */
+        .nav-tabs .nav-link { color: #aaa; border: none; font-size: 0.8rem; }
+        .nav-tabs .nav-link.active { background: #333; color: #fff; border-bottom: 2px solid #0d6efd; }
+        .tab-content { max-height: 70vh; overflow-y: auto; }
+        
+        /* Scrollbar for ROM list */
+        .tab-content::-webkit-scrollbar { width: 6px; }
+        .tab-content::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
 
-            .keyboard-sidebar.active {
-            left: 20px; /* Slide in from the left */
-            width: 650px;
-            }
-
-            /* Optional: Make the image look retro */
-            .keyboard-sidebar img {
-            filter: grayscale(20%) contrast(110%);
-            }
+        .rom-table td { font-family: monospace; font-size: 0.85rem; }
+        .rom-category { background: #2c2c2c; font-weight: bold; font-size: 0.75rem; color: #0d6efd; }
     </style>
 </head>
 <body>
-
 <input type="file" id="asm-upload" class="hidden-input" accept=".asm,.txt" onchange="handleAsmUpload(this)">
 <input type="file" id="p-upload" class="hidden-input" accept=".p" onchange="handlePUpload(this)">
 
@@ -95,10 +98,13 @@
                     <li><a class="dropdown-item" onclick="clearTapes()"><i data-feather="trash-2" class="me-2" style="width:14px"></i>Clear Tapes</a></li>
                 </ul>
             </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#" onclick="toggleKeyboard()">>Keyboard Map</a>
-            </li>
         </ul>
+
+        <div class="d-flex align-items-center me-auto">
+             <button type="button" class="btn btn-sm btn-info me-3" onclick="toggleKeyboard()">
+                <i data-feather="help-circle"></i> Quick Ref
+            </button>
+        </div>
         
         <div class="d-flex align-items-center me-auto">
             <span class="text-secondary small me-2">File:</span>
@@ -135,14 +141,61 @@
     </div>
 </div>
 
-<div id="keyboardPanel" class="keyboard-sidebar shadow">
-  <div class="d-flex justify-content-between align-items-center p-2 border-bottom border-secondary bg-dark text-white">
-    <span class="small fw-bold">ZX81 Keyboard Map</span>
-    <button type="button" class="btn-close btn-close-white" onclick="toggleKeyboard()"></button>
-  </div>
-  <div class="p-2 bg-dark">
-    <img src="keyboard.png" class="img-fluid rounded" alt="ZX81 Keyboard">
-  </div>
+<div id="keyboardPanel" class="keyboard-sidebar shadow-lg">
+    <div class="d-flex justify-content-between align-items-center p-2 bg-dark text-white rounded-top">
+        <span class="small fw-bold px-2">ZX81 REFERENCE</span>
+        <button type="button" class="btn-close btn-close-white" onclick="toggleKeyboard()"></button>
+    </div>
+
+    <ul class="nav nav-tabs nav-fill bg-dark" id="refTabs" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-keys" type="button">Keyboard</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-rom" type="button">ROM Calls</button>
+        </li>
+    </ul>
+
+    <div class="tab-content p-3">
+        <div class="tab-pane fade show active" id="tab-keys" role="tabpanel">
+            <img src="keyboard.png" class="img-fluid rounded border border-secondary" alt="ZX81 Keyboard">
+            <div class="mt-3 small">
+                <p class="text-info mb-1"><i data-feather="info" style="width:14px"></i> <strong>Graphics:</strong></p>
+                <code class="text-light">Shift + 1-8</code> for block graphics.<br>
+                <code class="text-light">Shift + 9</code> for Graphics mode toggle.
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-rom" role="tabpanel">
+            <table class="table table-dark table-hover table-sm rom-table">
+                <thead>
+                    <tr class="text-muted">
+                        <th>Addr</th>
+                        <th>Function</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="rom-category"><td colspan="2">I/O & SYSTEM</td></tr>
+                    <tr><td>$0010</td><td>PRINT-CHAR (Char in A)</td></tr>
+                    <tr><td>$08F5</td><td>MOVE CURSOR (Row=B, Col=C)</td></tr>
+                    <tr><td>$02BB</td><td>SCAN KEYBOARD (HL)</td></tr>
+                    <tr><td>$07BD</td><td>DECODE KEYBOARD</td></tr>
+                    <tr><td>$0A2A</td><td>CLS (Clear Screen)</td></tr>
+                    <tr><td>$10A8</td><td>WAIT FOR KEY (A)</td></tr>
+                    
+                    <tr class="rom-category"><td colspan="2">MATH & CALCULATOR</td></tr>
+                    <tr><td>$0E6C</td><td>RAND</td></tr>
+                    <tr><td>$0F55</td><td>RND</td></tr>
+                    
+                    <tr class="rom-category"><td colspan="2">GRAPHICS</td></tr>
+                    <tr><td>$0BB2</td><td>PLOT (B=X, C=Y)</td></tr>
+                    <tr><td>$0BD2</td><td>UNPLOT (B=X, C=Y)</td></tr>
+                    
+                </tbody>
+            </table>
+            <p class="x-small text-muted" style="font-size: 0.7rem;">Note: Most calls destroy AF, BC, DE, and HL.</p>
+        </div>
+    </div>
 </div>
 
 <div class="modal fade" id="aboutModal" tabindex="-1" aria-hidden="true">
