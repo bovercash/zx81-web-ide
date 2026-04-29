@@ -175,22 +175,24 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr class="rom-category"><td colspan="2">I/O & SYSTEM</td></tr>
-                    <tr><td>$0010</td><td>PRINT-CHAR (Char in A)</td></tr>
-                    <tr><td>$08F5</td><td>MOVE CURSOR (Row=B, Col=C)</td></tr>
-                    <tr><td>$02BB</td><td>SCAN KEYBOARD (HL)</td></tr>
-                    <tr><td>$07BD</td><td>DECODE KEYBOARD</td></tr>
-                    <tr><td>$0A2A</td><td>CLS (Clear Screen)</td></tr>
-                    <tr><td>$10A8</td><td>WAIT FOR KEY (A)</td></tr>
+                    <tr class="rom-category"><td colspan="3">BASIC I/O</td></tr>
+                    <tr><td>$0010</td><td>PRINT-CHAR</td><td>A=Char code. Destroys AF, BC, DE, HL.</td></tr>
+                    <tr><td>$08F5</td><td>PRINT-AT</td><td>B=Row(0-21), C=Col(0-31).</td></tr>
+                    <tr><td>$0A2A</td><td>CLS</td><td>Clears D_FILE and resets system vars.</td></tr>
+                    <tr><td>$0C0E</td><td>SCROLL</td><td>Scroll up one line.</td></tr>
                     
-                    <tr class="rom-category"><td colspan="2">MATH & CALCULATOR</td></tr>
-                    <tr><td>$0E6C</td><td>RAND</td></tr>
-                    <tr><td>$0F55</td><td>RND</td></tr>
+                    <tr class="rom-category"><td colspan="3">KEYBOARD</td></tr>
+                    <tr><td>$02BB</td><td>K-SCAN</td><td>Raw scan. Result in HL.</td></tr>
+                    <tr><td>$07BD</td><td>DECODE</td><td>Converts raw scan to character in A.</td></tr>
                     
-                    <tr class="rom-category"><td colspan="2">GRAPHICS</td></tr>
-                    <tr><td>$0BB2</td><td>PLOT (B=X, C=Y)</td></tr>
-                    <tr><td>$0BD2</td><td>UNPLOT (B=X, C=Y)</td></tr>
+                    <tr class="rom-category"><td colspan="3">GRAPHICS (QUARTER-PIXELS)</td></tr>
+                    <tr><td>$0BB2</td><td>PLOT</td><td>Y=B,X=C, T_ADDR &lt; $9E</td></tr>
+                    <tr><td>$0BB2</td><td>UNPLOT</td><td>Y=B,X=C, T_ADDR &gt; $9E</td></tr>
                     
+                    <tr class="rom-category"><td colspan="3">MODES & SYSTEM</td></tr>
+                    <tr><td>$0F2B</td><td>SLOW</td><td>Screen visible during compute.</td></tr>
+                    <tr><td>$0F23</td><td>FAST</td><td>CPU constant, screen goes black.</td></tr>
+                    <tr><td>$0F35</td><td>PAUSE</td><td>Pause te CPU</td></tr>
                 </tbody>
             </table>
             <p class="x-small text-muted" style="font-size: 0.7rem;">Note: Most calls destroy AF, BC, DE, and HL.</p>
