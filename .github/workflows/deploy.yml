@@ -1,0 +1,45 @@
+name: Build and Deploy IDE
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Pasmo WASM via Docker
+        run: |
+          mkdir -p ./dist/lib
+          docker build -t pasmo-builder ./builder
+          docker run --name pasmo-container pasmo-builder
+          docker cp pasmo-container:/pasmo/pasmo/pasmo.js ./dist/lib/
+          docker cp pasmo-container:/pasmo/pasmo/pasmo.wasm ./dist/lib/
+          npx uglify-js ./dist/lib/pasmo.js -b -o ./dist/lib/pasmo.js
+          patch ./dist/lib/pasmo.js < pasmo.patch
+
+      - name: Fetch JS Dependencies
+        run: |
+          mkdir -p ./dist/lib/roms
+          curl -L https://raw.githubusercontent.com/hammingweight/zx81-javascript-emulator/refs/heads/master/src/zx81_emu.js -o ./dist/lib/zx81_emu.js
+          curl -L https://raw.githubusercontent.com/hammingweight/zx81-javascript-emulator/refs/heads/master/src/roms/zx81.rom -o ./dist/lib/roms/zx81.rom
+          
+
+      - name: Prepare Final Site
+        run: |
+          mkdir -p ./dist
+          cp index.html ./dist/
+          cp keyboard.png ./dist/
+          cp emulator.html ./dist/lib/
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name != 'push' || env.ACT != 'true'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
