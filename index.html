@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ZX81 Web IDE</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/theme/monokai.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/z80/z80.min.js"></script>
+    
+    <script src="./lib/pasmo.js"></script>
+
+    <style>
+        body { background: #1e1e1e; color: #ddd; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .navbar { background: #2d2d2d !important; border-bottom: 1px solid #444; padding: 0.25rem 1rem; height: 45px; }
+        .nav-link { color: #ddd !important; font-size: 0.9rem; cursor: pointer; }
+        
+        #main-container { display: flex; flex: 1; overflow: hidden; }
+        #editor-container { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #444; }
+        
+        .CodeMirror { flex: 1; height: 100%; font-size: 14px; font-family: 'Fira Code', 'Consolas', monospace; }
+        
+        #emulator-container { width: 780px; background: #000; display: flex; flex-direction: column; }
+        iframe { width: 100%; height: 530px; border: none; }
+        
+        /* Console Header & Layout */
+        #console-wrapper { height: 120px; background: #111; border-top: 1px solid #444; display: flex; flex-direction: column; }
+        #console-header { background: #1a1a1a; padding: 4px 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+        #console { flex: 1; padding: 10px; font-family: monospace; overflow-y: auto; font-size: 12px; color: #0f0; }
+        
+        .log-entry { margin-bottom: 2px; }
+        .btn-primary-custom { background: #007acc; border: none; font-weight: 600; padding: 4px 12px; }
+        .btn-primary-custom:disabled { background: #444; }
+        
+        .dropdown-menu { background: #2d2d2d; border: 1px solid #444; }
+        .dropdown-item { color: #ddd; font-size: 0.9rem; }
+        .dropdown-item:hover { background: #3d3d3d; color: #fff; }
+        
+        /* Filename Input Styling */
+        #filename-input { background: #1e1e1e; border: 1px solid #444; color: #007acc; font-family: monospace; font-size: 13px; padding: 2px 8px; border-radius: 4px; width: 200px; }
+        #filename-input:focus { outline: none; border-color: #007acc; }
+
+        .hidden-input { display: none; }
+
+        /* Floating Sidebar Styling */
+        .keyboard-sidebar {
+            position: fixed;
+            top: 70px;
+            left: -620px; /* Hidden by default */
+            width: 600px;
+            z-index: 1050;
+            background: #1e1e1e;
+            transition: 0.3s ease-in-out;
+            border: 1px solid #444;
+            border-radius: 0 8px 8px 0;
+        }
+        .keyboard-sidebar.active { left: 0; }
+        
+        /* Tab Styling */
+        .nav-tabs .nav-link { color: #aaa; border: none; font-size: 0.8rem; }
+        .nav-tabs .nav-link.active { background: #333; color: #fff; border-bottom: 2px solid #0d6efd; }
+        .tab-content { max-height: 70vh; overflow-y: auto; }
+        
+        /* Scrollbar for ROM list */
+        .tab-content::-webkit-scrollbar { width: 6px; }
+        .tab-content::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+
+        .rom-table td { font-family: monospace; font-size: 0.85rem; }
+        .rom-category { background: #2c2c2c; font-weight: bold; font-size: 0.75rem; color: #0d6efd; }
+    </style>
+</head>
+<body>
+<input type="file" id="asm-upload" class="hidden-input" accept=".asm,.txt" onchange="handleAsmUpload(this)">
+<input type="file" id="p-upload" class="hidden-input" accept=".p" onchange="handlePUpload(this)">
+
+<nav class="navbar navbar-expand navbar-dark">
+    <div class="collapse navbar-collapse">
+        <ul class="navbar-nav me-3">
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">File</a>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" onclick="document.getElementById('asm-upload').click()"><i data-feather="file-plus" class="me-2" style="width:14px"></i>Open ASM</a></li>
+                    <li><a class="dropdown-item" onclick="downloadAsm()"><i data-feather="download" class="me-2" style="width:14px"></i>Save ASM</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" onclick="document.getElementById('p-upload').click()"><i data-feather="upload-cloud" class="me-2" style="width:14px"></i>Upload .P Tape</a></li>
+                    <li><a class="dropdown-item" onclick="downloadP()"><i data-feather="save" class="me-2" style="width:14px"></i>Download .P Tape</a></li>
+                </ul>
+            </li>
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Emulator</a>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" onclick="restartEmulator()"><i data-feather="refresh-cw" class="me-2" style="width:14px"></i>Restart (Cold Boot)</a></li>
+                    <li><a class="dropdown-item" onclick="startInBasic()"><i data-feather="terminal" class="me-2" style="width:14px"></i>Start in BASIC</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" onclick="clearTapes()"><i data-feather="trash-2" class="me-2" style="width:14px"></i>Clear Tapes</a></li>
+                </ul>
+            </li>
+        </ul>
+
+        <div class="d-flex align-items-center me-auto">
+             <button type="button" class="btn btn-sm btn-info me-3" onclick="toggleKeyboard()">
+                <i data-feather="help-circle"></i> Quick Ref
+            </button>
+        </div>
+        
+        <div class="d-flex align-items-center me-auto">
+            <span class="text-secondary small me-2">File:</span>
+            <input type="text" id="filename-input" value="program.asm" spellcheck="false">
+        </div>
+
+       <div class="d-flex align-items-center">
+            <button id="run-btn" class="btn btn-sm btn-primary-custom me-3" onclick="buildAndRun()" disabled>
+                <i data-feather="play" style="width: 14px; height: 14px;"></i> Build & Run
+            </button>
+            <span class="text-secondary small">
+                ZX81 Web IDE v1.1 | 
+                <a href="javascript:void(0)" onclick="showAbout()" class="text-info text-decoration-none">About & License</a>
+            </span>
+        </div>
+    </div>
+</nav>
+
+<div id="main-container">
+    <div id="editor-container">
+        <textarea id="code-editor"></textarea>
+    </div>
+    <div id="emulator-container">
+        <iframe id="zx81-iframe" src="./lib/emulator.html"></iframe>
+        <div id="console-wrapper">
+            <div id="console-header">
+                <span class="text-secondary small text-uppercase fw-bold" style="letter-spacing: 1px;">Output Log</span>
+                <button class="btn btn-link btn-sm text-secondary p-0" onclick="clearLog()" title="Clear Logs">
+                    <i data-feather="slash" style="width: 14px;"></i>
+                </button>
+            </div>
+            <div id="console"></div>
+        </div>
+    </div>
+</div>
+
+<div id="keyboardPanel" class="keyboard-sidebar shadow-lg">
+    <div class="d-flex justify-content-between align-items-center p-2 bg-dark text-white rounded-top">
+        <span class="small fw-bold px-2">ZX81 REFERENCE</span>
+        <button type="button" class="btn-close btn-close-white" onclick="toggleKeyboard()"></button>
+    </div>
+
+    <ul class="nav nav-tabs nav-fill bg-dark" id="refTabs" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-keys" type="button">Keyboard</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-rom" type="button">ROM Calls</button>
+        </li>
+    </ul>
+
+    <div class="tab-content p-3">
+        <div class="tab-pane fade show active" id="tab-keys" role="tabpanel">
+            <img src="./keyboard.png" class="img-fluid rounded border border-secondary" alt="ZX81 Keyboard">
+            <div class="mt-3 small">
+                <p class="text-info mb-1"><i data-feather="info" style="width:14px"></i> <strong>Graphics:</strong></p>
+                <code class="text-light">Shift + 1-8</code> for block graphics.<br>
+                <code class="text-light">Shift + 9</code> for Graphics mode toggle.
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-rom" role="tabpanel">
+            <table class="table table-dark table-hover table-sm rom-table">
+                <thead>
+                    <tr class="text-muted">
+                        <th>Addr</th>
+                        <th>Function</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="rom-category"><td colspan="3">BASIC I/O</td></tr>
+                    <tr><td>$0010</td><td>PRINT-CHAR</td><td>A=Char code. Destroys AF, BC, DE, HL.</td></tr>
+                    <tr><td>$08F5</td><td>PRINT-AT</td><td>B=Row(0-21), C=Col(0-31).</td></tr>
+                    <tr><td>$0A2A</td><td>CLS</td><td>Clears D_FILE and resets system vars.</td></tr>
+                    <tr><td>$0C0E</td><td>SCROLL</td><td>Scroll up one line.</td></tr>
+                    
+                    <tr class="rom-category"><td colspan="3">KEYBOARD</td></tr>
+                    <tr><td>$02BB</td><td>K-SCAN</td><td>Raw scan. Result in HL.</td></tr>
+                    <tr><td>$07BD</td><td>DECODE</td><td>Converts raw scan to character in A.</td></tr>
+                    
+                    <tr class="rom-category"><td colspan="3">GRAPHICS (QUARTER-PIXELS)</td></tr>
+                    <tr><td>$0BB2</td><td>PLOT</td><td>Y=B,X=C, T_ADDR &lt; $9E</td></tr>
+                    <tr><td>$0BB2</td><td>UNPLOT</td><td>Y=B,X=C, T_ADDR &gt; $9E</td></tr>
+                    
+                    <tr class="rom-category"><td colspan="3">MODES & SYSTEM</td></tr>
+                    <tr><td>$0F2B</td><td>SLOW</td><td>Screen visible during compute.</td></tr>
+                    <tr><td>$0F23</td><td>FAST</td><td>CPU constant, screen goes black.</td></tr>
+                    <tr><td>$0F35</td><td>PAUSE</td><td>Pause te CPU</td></tr>
+                </tbody>
+            </table>
+            <p class="x-small text-muted" style="font-size: 0.7rem;">Note: Most calls destroy AF, BC, DE, and HL.</p>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="aboutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-light border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title d-flex align-items-center">
+                    <i data-feather="info" class="me-2 text-primary"></i> About ZX81 Web IDE
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-secondary small">Version 1.1 (April 2026)</p>
+                <p>A web-based assembly development environment designed specifically for the Sinclair ZX81.</p>
+                
+                <hr class="border-secondary">
+                
+                <h6 class="text-primary fw-bold small text-uppercase mb-3">Licensing & Credits</h6>
+                <ul class="list-unstyled mb-0" style="font-size: 0.9rem;">
+                    <li class="mb-2">
+                        <i data-feather="cpu" class="me-2 text-secondary" style="width: 14px;"></i>
+                        <strong>Emulator Core:</strong> <span class="text-secondary">GPL v2.0</span><br>
+                        <small class="ms-4">Derivative of hammingweight's ZX81 Emulator.</small>
+                    </li>
+                    <li class="mb-2">
+                        <i data-feather="code" class="me-2 text-secondary" style="width: 14px;"></i>
+                        <strong>Assembler:</strong> <span class="text-secondary">GPL</span><br>
+                        <small class="ms-4">Pasmo Z80 via Emscripten.</small>
+                    </li>
+                    <li class="mb-2">
+                        <i data-feather="box" class="me-2 text-secondary" style="width: 14px;"></i>
+                        <strong>UI Components:</strong> <span class="text-secondary">MIT</span><br>
+                        <small class="ms-4">CodeMirror, Bootstrap, & Feather Icons.</small>
+                    </li>
+                </ul>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    feather.replace();
+    let pasmo;
+    let lastBinary = null;
+
+    const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+        mode: 'z80',
+        theme: 'monokai',
+        lineNumbers: true,
+        matchBrackets: true
+    });
+
+    // Console Logic
+    function log(msg) {
+        const consoleEl = document.getElementById('console');
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerText = `> ${msg}`;
+        consoleEl.appendChild(entry);
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    function clearLog() {
+        document.getElementById('console').innerHTML = '';
+        log("Log cleared.");
+    }
+
+    // File Logic
+    function handleAsmUpload(input) {
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            editor.setValue(e.target.result);
+            document.getElementById('filename-input').value = file.name;
+            log(`Loaded source: ${file.name}`);
+        };
+        reader.readAsText(file);
+    }
+
+    function handlePUpload(input) {
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const bin = new Uint8Array(e.target.result);
+            lastBinary = bin;
+            document.getElementById('filename-input').value = file.name;
+            injectAndStart(bin);
+            log(`Tape injected: ${file.name}`);
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function downloadAsm() {
+        const filename = document.getElementById('filename-input').value;
+        const blob = new Blob([editor.getValue()], {type: "text/plain"});
+        saveBlob(blob, filename.endsWith('.asm') ? filename : filename + '.asm');
+    }
+
+    function downloadP() {
+        if (!lastBinary) return log("Error: Build code first to generate tape.");
+        const filename = document.getElementById('filename-input').value;
+        const pName = filename.split('.').slice(0, -1).join('.') + ".p";
+        const blob = new Blob([lastBinary], {type: "application/octet-stream"});
+        saveBlob(blob, pName || "program.p");
+    }
+
+    function saveBlob(blob, name) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
+
+    // Emulator Control
+    function restartEmulator() {
+        log("Cold-booting hardware...");
+        const iframe = document.getElementById('zx81-iframe');
+        iframe.onload = () => { log("Hardware Ready."); iframe.onload = null; };
+        iframe.src = iframe.src;
+    }
+
+    function startInBasic() {
+        log("Booting into Sinclair BASIC...");
+        const iframe = document.getElementById('zx81-iframe');
+
+        // Setup the reload listener
+        iframe.onload = function() {
+            const win = iframe.contentWindow;
+            
+            // Ensure no leftover tapes from previous sessions are in the way
+            if (win.tape) {
+                win.tape.clearTracks();
+            }
+
+            log("Hardware Ready. Starting ROM...");
+            win.emu.startup(); 
+            
+            win.focus();
+            iframe.onload = null;
+        };
+
+        // Reload the frame to clear RAM/Registers
+        iframe.src = iframe.src;
+    }
+
+    function clearTapes() {
+        const win = document.getElementById('zx81-iframe').contentWindow;
+        if (win.tape) {
+            win.tape.clearTracks();
+            log("All tapes cleared.");
+        }
+    }
+
+    function injectAndStart(bin) {
+        const iframe = document.getElementById('zx81-iframe');
+        iframe.onload = function() {
+            const win = iframe.contentWindow;
+            win.tape.setP(bin); 
+            win.emu.startup(); 
+            win.focus();
+            iframe.onload = null;
+        };
+        iframe.src = iframe.src;
+    }
+
+    // Pasmo Initialization
+    PasmoModule({ log: log, err: log }).then(instance => {
+        pasmo = instance;
+        document.getElementById('run-btn').disabled = false;
+        log("Pasmo Z80 Assembler Ready.");
+    });
+
+    async function buildAndRun() {
+        try {
+            log("Assembling...");
+            pasmo.FS.writeFile('in.asm', editor.getValue());
+            pasmo.callMain(['--bin', 'in.asm', 'out.p']);
+            lastBinary = pasmo.FS.readFile('out.p');
+            injectAndStart(lastBinary);
+            log("Press Enter and Follow Instructions");
+        } catch (e) {
+            log("Assembly Error.");
+        }
+    }
+
+    function toggleKeyboard() {
+        const panel = document.getElementById('keyboardPanel');
+        panel.classList.toggle('active');
+    }
+
+    function showAbout() {
+        const aboutModal = new bootstrap.Modal(document.getElementById('aboutModal'));
+        aboutModal.show();
+        
+        // Re-run feather to ensure icons inside the modal are rendered
+        feather.replace();
+    }
+
+    // Default Starter Code
+    editor.setValue(`
+_SPC        equ 0x00        ; " "
+_DQT        equ 0x0b        ; "
+_PND        equ 0x0c        ; Â£
+_DLR        equ 0x0d        ; $
+_CLN        equ 0x0e        ; :
+_QMK        equ 0x0f        ; ?
+_OBR        equ 0x10        ; (
+_CBR        equ 0x11        ; )
+_GTH        equ 0x12        ; >
+_LTH        equ 0x13        ; <
+_EQU        equ 0x14        ; =
+_PLS        equ 0x15        ; +
+_MNS        equ 0x16        ; -
+_ASK        equ 0x17        ; *
+_SLS        equ 0x18        ; /
+_SMC        equ 0x19        ; ;
+_CMA        equ 0x1a        ; ,
+_FST        equ 0x1b        ; .
+_0      equ 0x1c
+_1      equ 0x1d
+_2      equ 0x1e
+_3      equ 0x1f
+_4      equ 0x20
+_5      equ 0x21
+_6      equ 0x22
+_7      equ 0x23
+_8      equ 0x24
+_9      equ 0x25
+_A      equ 0x26
+_B      equ 0x27
+_C      equ 0x28
+_D      equ 0x29
+_E      equ 0x2a
+_F      equ 0x2b
+_G      equ 0x2c
+_H      equ 0x2d
+_I      equ 0x2e
+_J      equ 0x2f
+_K      equ 0x30
+_L      equ 0x31
+_M      equ 0x32
+_N      equ 0x33
+_O      equ 0x34
+_P      equ 0x35
+_Q      equ 0x36
+_R      equ 0x37
+_S      equ 0x38
+_T      equ 0x39
+_U      equ 0x3a
+_V      equ 0x3b
+_W      equ 0x3c
+_X      equ 0x3d
+_Y      equ 0x3e
+_Z      equ 0x3f
+
+; Inverse equivalents of the above.
+
+_SPCV       equ _SPC+0x80   ; [ ]
+_DQTV       equ _DQT+0x80   ; ["]
+_PNDV       equ _PND+0x80   ; [Â£]
+_DLRV       equ _DLR+0x80   ; [$]
+_CLNV       equ _CLN+0x80   ; [:]
+_QMKV       equ _QMK+0x80   ; [?]
+_OBRV       equ _OBR+0x80   ; [(]
+_CBRV       equ _CBR+0x80   ; [)]
+_GTHV       equ _GTH+0x80   ; [>]
+_LTHV       equ _LTH+0x80   ; [<]
+_EQUV       equ _EQU+0x80   ; [=]
+_PLSV       equ _PLS+0x80   ; [+]
+_MNSV       equ _MNS+0x80   ; [-]
+_ASKV       equ _ASK+0x80   ; [*]
+_SLSV       equ _SLS+0x80   ; [/]
+_SMCV       equ _SMC+0x80   ; [;]
+_CMAV       equ _CMA+0x80   ; [,]
+_FSTV       equ _FST+0x80   ; [.]
+_0V     equ _0+0x80
+_1V     equ _1+0x80
+_2V     equ _2+0x80
+_3V     equ _3+0x80
+_4V     equ _4+0x80
+_5V     equ _5+0x80
+_6V     equ _6+0x80
+_7V     equ _7+0x80
+_8V     equ _8+0x80
+_9V     equ _9+0x80
+_AV     equ _A+0x80
+_BV     equ _B+0x80
+_CV     equ _C+0x80
+_DV     equ _D+0x80
+_EV     equ _E+0x80
+_FV     equ _F+0x80
+_GV     equ _G+0x80
+_HV     equ _H+0x80
+_IV     equ _I+0x80
+_JV     equ _J+0x80
+_KV     equ _K+0x80
+_LV     equ _L+0x80
+_MV     equ _M+0x80
+_NV     equ _N+0x80
+_OV     equ _O+0x80
+_PV     equ _P+0x80
+_QV     equ _Q+0x80
+_RV     equ _R+0x80
+_SV     equ _S+0x80
+_TV     equ _T+0x80
+_UV     equ _U+0x80
+_VV     equ _V+0x80
+_WV     equ _W+0x80
+_XV     equ _X+0x80
+_YV     equ _Y+0x80
+_ZV     equ _Z+0x80
+
+_NL     equ 0x76
+
+_VAL        equ 0xc5
+_INT        equ 0xcf
+_USR        equ 0xd4
+_NOT        equ 0xd7
+_PWR        equ 0xd8        ; **
+_THEN       equ 0xde
+_STOP       equ 0xe3
+_REM        equ 0xea
+_LET        equ 0xf1
+_PRINT      equ 0xf5
+_RUN        equ 0xf7
+_SAVE       equ 0xf8
+_RAND       equ 0xf9
+_IF     equ 0xfa
+
+; RST routines (a selection of).
+
+ERROR       equ 0x08        ; Follow with a byte error code -1.
+PRINT_CHAR  equ 0x10        ; regA contains the char.
+PRINT_AT    equ 0x08F5	    ; Row = B, Col = C 
+KSCAN	    equ 0x02BB
+DECODE	    equ 0x07BD
+CLS	    equ 0x0A2A
+
+; ROM routines (a selection of).
+
+KEYB_SCAN   equ 0x02bb
+KEYB_DECODE equ 0x07bd
+
+RAND 	equ 0x0E6C
+RND 	equ 0x0F55
+
+; Start of the system variables area.
+
+ERR_NR      equ 0x4000
+FLAGS       equ 0x4001
+ERR_SP      equ 0x4002
+RAMTOP      equ 0x4004
+MODE        equ 0x4006
+PPC     equ 0x4007
+
+p_start:    org 0x4009
+
+VERSN:      defb    0
+E_PPC:      defw    20      ; BASIC line number of line with cursor.
+D_FILE:     defw    display_file
+DF_CC:      defw    display_file+1
+VARS:       defw    variables
+DEST:       defw    0
+E_LINE:     defw    edit_line
+CH_ADD:     defw    p_end-1
+X_PTR:      defw    0
+STKBOT:     defw    p_end
+STKEND:     defw    p_end
+BERG:       defb    0
+MEM:        defw    MEMBOT
+SPARE1:     defb    0
+DF_SZ:      defb    2       ; Number of lines in lower part of screen.
+S_TOP:      defw    10      ; BASIC line number of line at top of screen.
+LAST_K:     defw    0xffff
+DB_ST:      defb    0
+MARGIN:     defb    55      ; Blank lines above/below TV picture: US = 31, UK = 55.
+NXTLIN:     defw    display_file    ; Memory address of next program line to be executed.
+OLDPPC:     defw    0
+FLAGX:      defb    0
+STRLEN:     defw    0
+T_ADDR:     defw    0x0c8d
+SEED:       defw    0
+FRAMES:     defw    0       ; Updated once for every TV frame displayed.
+COORDS:     defw    0
+PR_CC:      defb    0xbc
+S_POSN:     defb    0x21,0x18
+CDFLAG:     defb    0x40
+PRBUF:      defs    0x20
+        defb    _NL
+MEMBOT:     defs    0x1e
+SPARE2:     defw    0
+
+; Start of the BASIC area for user programs.
+
+basic_0001: defb	0,1	;1 REM
+	defw	basic_0010-basic_0001-4
+	defb	_REM
+
+; start of machine code
+
+mem_16514:
+
+START_PRG:
+	CALL CLS
+
+	; position cursor
+	LD B, 0
+	LD C, 3
+	CALL PRINT_AT
+
+	; print title
+	LD HL, msg
+_PRINTMSG:
+	LD A, (HL)
+    CP $FF
+    JR Z, END_PRG
+	
+    CALL PRINT_CHAR
+    INC HL
+    JR _PRINTMSG
+
+END_PRG:
+	RET
+
+msg	DB _H,_E,_L,_L,_O,_SPC,_W,_O,_R,_L,_D
+	DB $FF
+
+; end of machine code
+
+        defb    _NL
+basic_0010: defb    0,10        ; 10 RAND VAL "USR 16514"
+        defw    basic_0020-basic_0010-4
+        defb    _RAND,_USR,_VAL,_DQT,_1,_6,_5,_1,_4,_DQT
+        defb    _NL
+basic_0020: defb    0,20        ; 20 REM ** TYPE RUN **
+        defw    basic_end-basic_0020-4
+        defb    _REM,_PWR,_SPC,_T,_Y,_P,_E,_RUN,_PWR
+        defb    _NL
+basic_end:
+
+; clear the screen
+
+; Expanded for > 3k RAM.
+
+display_file:   defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+        defs    32
+        defb    _NL
+
+variables:  defb    0x80
+
+; Start of the edit line used by BASIC.
+
+edit_line:
+
+p_end:      end
+
+    `);
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<HTML>
+<TITLE>ZX81 Emulator</TITLE>
+<BODY>
+<script src="./zx81_emu.js"></script>
+<script>
+
+    // DuckPunch the File loading function
+    window.FileToLoad = function(t, e, n, r) {
+        this.loadedLen = 0, this.fileName = t.replace("\\", "/");
+        var i = new XMLHttpRequest;
+
+        var baseLocation = window.location.href;
+        baseLocation = baseLocation.replace("emulator.html","");
+
+        i.open("GET", baseLocation + this.fileName, !0), i.responseType = "arraybuffer";
+        var o = this;
+        i.onreadystatechange = function() {
+            if (4 === this.readyState && 200 === this.status) {
+                for (var t = new Uint8Array(this.response), i = r < t.length ? r : t.length, a = 0; i > a; a++) e[n + a] = t[a];
+                o.loadedLen = i
+            } else 404 === this.status && (o.loadedLen = -1)
+        }, i.send()
+    };
+
+    window.emu = window.emu || {
+        startup: function() {
+            window.emu.emulatorUI = new ZX81EmulatorUI('emulator_canvas','emulator_status');
+        },
+        shutdown: function() {
+            if(window.emu.emulatorUI) {
+                window.emu.emulatorUI.emulator.stop();
+            }
+        }
+    };
+</script>
+
+<SECTION class="emulator_wrapper">
+<canvas id="emulator_canvas"/>
+</SECTION>
+
+<SECTION class="emulator_fps">
+<span id="emulator_status">&nbsp;</span>
+</SECTION>
+</BODY>
+</HTML>
